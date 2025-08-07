@@ -8,13 +8,14 @@
   ],
   "description": "A brand new and very nice module",
   "license": "Artistic-2.0",
-  "name": "WWW--CloudHosting--Hetzner",
+  "name": "WWW::CloudHosting::Hetzner",
   "provides": {
     "WWW::CloudHosting::Hetzner": "lib/WWW/CloudHosting/Hetzner.rakumod"
   },
   "resources": [
   ],
+  "source-url": "https://github.com/wayland/raku-WWW-CloudHosting-Hetzner.git",
   "test-depends": [
   ],
-  "version": "0.0.1"
+  "version": "0.0.2"
 }
