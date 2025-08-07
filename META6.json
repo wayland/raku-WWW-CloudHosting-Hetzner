@@ -3,11 +3,11 @@
   "build-depends": [
   ],
   "depends": [
-    "Cro",
-    "URI",
+    "Cro::HTTP::Client",
     "JSON::Fast"
   ],
   "description": "A brand new and very nice module",
+  "license": "Artistic-2.0",
   "name": "WWW--CloudHosting--Hetzner",
   "provides": {
     "WWW::CloudHosting::Hetzner": "lib/WWW/CloudHosting/Hetzner.rakumod"
