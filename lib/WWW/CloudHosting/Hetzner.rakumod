@@ -56,23 +56,6 @@ class	WWW::CloudHosting::Hetzner {
 		self.server-action($id, 'shutdown');
 	}
 
-	method create-server(*%payload --> Promise) {
-		start {
-			my $resp = await $!client.post("servers",
-				headers => [self.auth-header, 'Content-Type' => 'application/json'],
-				body    => %payload.&to-json
-			);
-
-			$resp.status == 201
-				?? await $resp.body 
-				!! do {
-					say "Create failed: status $resp.status";
-					say await $resp.body;
-					die "Failed to create server";
-				}
-		}
-	}
-
 	method delete-server(Int $id --> Promise) {
 		start {
 			my $resp = await $!client.delete("servers/$id", headers => [self.auth-header]);
@@ -104,6 +87,44 @@ class	WWW::CloudHosting::Hetzner {
 				say await $resp.body;
 				die "Failed to list images";
 			}
+		}
+	}
+
+	method create-server(*%payload --> Promise) {
+		self.create-action(
+			'create', 'server',
+			'servers',
+			|%payload,
+		);
+	}
+
+	method create-snapshot(Str $server-id, Str $description --> Hash) {
+		self.create-action(
+			'create', 'snapshot',
+			"servers/{$server-id}/actions/create_image",
+			# payload
+			type        => 'snapshot',
+			description => $description,
+		);
+	}
+
+	method create-action($action, $object, $url-part, *%payload --> Promise) {
+		start {
+			my $response = await $!client.post($url-part,
+				headers => [self.auth-header, 'Content-Type' => 'application/json'],
+				body    => %payload.&to-json
+			);
+			given $response.status {
+				when 200..299 {
+					"Successfully ({$_}) performed action $action on $object ($response<id>)"
+				}
+				default {
+					say "$action failed: status {$response<status>}";
+					say await $response<body>;
+					die "Failed to $action $object {$response<id>}";
+				}
+			}
+			await $response<body>;
 		}
 	}
 }
