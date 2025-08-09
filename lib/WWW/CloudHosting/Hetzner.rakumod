@@ -116,15 +116,15 @@ class	WWW::CloudHosting::Hetzner {
 			);
 			given $response.status {
 				when 200..299 {
-					"Successfully ({$_}) performed action $action on $object ($response<id>)"
+					"Successfully ({$_}) performed action $action on $object"
 				}
 				default {
-					say "$action failed: status {$response<status>}";
-					say await $response<body>;
-					die "Failed to $action $object {$response<id>}";
+					say "$action failed: status {$response.status}";
+					say await $response.body;
+					die "Failed to $action $object";
 				}
 			}
-			await $response<body>;
+			await $response.body;
 		}
 	}
 }
