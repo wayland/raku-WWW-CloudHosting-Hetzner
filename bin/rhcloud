@@ -1,0 +1,48 @@
+#!/usr/bin/env raku
+
+use	lib 'lib';
+
+#use	TOP;
+use	WWW::CloudHosting::Hetzner;
+
+my $token = %*ENV<HETZNER_TOKEN> or die "Missing HETZNER_TOKEN";
+my $api = WWW::CloudHosting::Hetzner.new(:$token);
+
+sub	MAIN('list-images', :$architecture, :$match) {
+	my @images;
+	for 1..* {
+		my $page-images = await $api.list-images(:$architecture, page => $_);
+		@images.push: |$page-images<images>.grep: { .<name> ~~ m:i/$match/ };
+		my $pagination = $page-images<meta><pagination>;
+		($pagination<page> < $pagination<last_page>) or last;
+	}
+
+#	my $table = Table.new(name => 'images', action => 'ensure');
+
+#	$table.fill_from_aoh($images<images>.values);
+
+#	my $select-table = $table.select(<A B C D E I>);
+#${:architecture("x86"), :bound_to(Any), :created("2021-06-08T06:21:07Z"), :created_from(Any), :deleted(Any), :deprecated(Any), 
+#:description("lamp"), :disk_size(40), :id(40093059), :image_size(Any), :labels(${}), :name("lamp"), :os_flavor("ubuntu"), 
+#:os_version("unknown"), :protection(${:delete(Bool::False)}), :rapid_deploy(Bool::True), :status("available"), :type("app")}
+
+#	say $table.format();
+
+	my $count = 0;
+	IMAGE: for @images -> $image {
+		$count++;
+		$_ = $image;
+		my $flavour = (.<os_flavour> ~~ Any) ?? '' !! .<os_flavour>;
+		my $created_from  = (.<created_from> ~~ Any) ?? '' !! .<created_from>;
+		say qq:to /EOF/
+{$count} {.<name>} ({.<id>}): {.<description>}
+	arch: {.<architecture>} 
+	created from: {$created_from}
+	size: {.<disk_size>}
+	os: {$flavour} {.<os_version>}
+	status: {.<status>}
+	type: {.<type>}
+EOF
+	}
+}
+

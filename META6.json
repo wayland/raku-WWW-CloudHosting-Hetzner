@@ -6,7 +6,7 @@
     "Cro::HTTP::Client",
     "JSON::Fast"
   ],
-  "description": "A brand new and very nice module",
+  "description": "An implementation of (parts of) the Hetzner API documented at https://docs.hetzner.cloud/reference/cloud#overview",
   "license": "Artistic-2.0",
   "name": "WWW::CloudHosting::Hetzner",
   "provides": {
@@ -17,5 +17,5 @@
   "source-url": "https://github.com/wayland/raku-WWW-CloudHosting-Hetzner.git",
   "test-depends": [
   ],
-  "version": "0.0.2"
+  "version": "0.0.3"
 }

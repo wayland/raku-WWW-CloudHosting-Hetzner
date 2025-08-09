@@ -90,4 +90,20 @@ class	WWW::CloudHosting::Hetzner {
 			await $resp.body;
 		}
 	}
+
+	method list-images(*%payload --> Promise) {
+		start {
+			my $resp = await $!client.get('images', 
+				headers => [self.auth-header],
+				query    => %payload,
+			);
+			if $resp.status == 200 {
+				await $resp.body
+			} else {
+				say "List images failed: status $resp.status";
+				say await $resp.body;
+				die "Failed to list images";
+			}
+		}
+	}
 }
