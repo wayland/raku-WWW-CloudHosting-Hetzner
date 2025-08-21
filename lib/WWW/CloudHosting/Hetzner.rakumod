@@ -98,7 +98,7 @@ class	WWW::CloudHosting::Hetzner {
 		);
 	}
 
-	method create-snapshot(Str $server-id, Str $description --> Hash) {
+	method create-snapshot(IntStr $server-id, Str $description --> Hash) {
 		self.create-action(
 			'create', 'snapshot',
 			"servers/{$server-id}/actions/create_image",
@@ -109,7 +109,15 @@ class	WWW::CloudHosting::Hetzner {
 	}
 
 	method create-action($action, $object, $url-part, *%payload --> Promise) {
+say %payload.&to-json;
 		start {
+			CATCH {
+				when X::Cro::HTTP::Error {
+					say "$action failed: status {.response.status}";
+					say await .response.body;
+					die "Failed to $action $object";
+				}
+			}
 			my $response = await $!client.post($url-part,
 				headers => [self.auth-header, 'Content-Type' => 'application/json'],
 				body    => %payload.&to-json
