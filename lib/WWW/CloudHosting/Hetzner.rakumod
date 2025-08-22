@@ -98,7 +98,7 @@ class	WWW::CloudHosting::Hetzner {
 		);
 	}
 
-	method create-snapshot(IntStr $server-id, Str $description --> Hash) {
+	method create-snapshot(Str $server-id, Str $description --> Hash) {
 		self.create-action(
 			'create', 'snapshot',
 			"servers/{$server-id}/actions/create_image",
