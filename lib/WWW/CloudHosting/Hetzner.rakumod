@@ -73,49 +73,69 @@ class	Client {
 		}
 	}
 
-	method create-server(*%payload --> Promise) {
-		self.create-action(
-			'create', 'server',
+	method create-server(Bool :$fail-on-exists = True, *%payload --> Promise) {
+		start self.create-action(
+			'create', 'server', 
 			'servers',
+			:$fail-on-exists,
 			|%payload,
 		);
 	}
 
 	method create-snapshot(Str $server-id, Str $description --> Promise) {
-		self.create-action(
+		start self.create-action(
 			'create', 'snapshot',
 			"servers/{$server-id}/actions/create_image",
 			# payload
 			type        => 'snapshot',
 			description => $description,
+			pull-key    => 'image',
 		);
 	}
 
-	method create-action($action, $object, $url-part, *%payload --> Promise) {
-say %payload.&to-json;
-		start {
-			CATCH {
-				when X::Cro::HTTP::Error {
+	# Note: It's tempting to try to move the "start" into this function, 
+	# but it doesn't work, because you can't return from a "start" block
+	method create-action(
+		$action, $object, $url-part,
+		Bool :$fail-on-exists = True,
+		Str :$pull-key is copy,
+		*%payload
+		--> Hash
+	) {
+		$pull-key or $pull-key = $object;
+		# say %payload.&to-json;
+		my $response = await $!client.post($url-part,
+			headers => [self.auth-header, 'Content-Type' => 'application/json'],
+			body    => %payload.&to-json
+		);
+		given $response.status {
+			when 200..299 {
+				"Successfully ({$_}) performed action $action on $object"
+			}
+			default {
+				say "$action failed: status {$response.status}";
+				say await $response.body;
+				die "Failed to $action $object";
+			}
+		}
+		my $response-body = await $response.body;
+		$response-body = $response-body{$pull-key};
+		$response-body<action> = $action;
+		return $response-body;
+		CATCH {
+			when X::Cro::HTTP::Error {
+				my $response-body = await .response.body;
+				if ! $fail-on-exists and $response-body<error><code> eq 'uniqueness_error' {
+					my $items = await self.list-action($url-part, name => %payload<name>);
+					$response = $items{$url-part}[0];
+					$response<action> = 'use';
+					return $response;
+				} else {
 					say "$action failed: status {.response.status}";
-					say await .response.body;
-					die "Failed to $action $object";
+					say $response-body;
+					.rethrow();
 				}
 			}
-			my $response = await $!client.post($url-part,
-				headers => [self.auth-header, 'Content-Type' => 'application/json'],
-				body    => %payload.&to-json
-			);
-			given $response.status {
-				when 200..299 {
-					"Successfully ({$_}) performed action $action on $object"
-				}
-				default {
-					say "$action failed: status {$response.status}";
-					say await $response.body;
-					die "Failed to $action $object";
-				}
-			}
-			await $response.body;
 		}
 	}
 
