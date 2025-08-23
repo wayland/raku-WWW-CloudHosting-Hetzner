@@ -1,24 +1,23 @@
+unit module WWW::CloudHosting::Hetzner;
+
 use	Cro::HTTP::Client;
 use	JSON::Fast;
+use     Hash::Merge;
+use	Env::Dotenv :ALL;
 
-class	WWW::CloudHosting::Hetzner {
+class	Client {
 	has	Str			$.token;
 	has	Cro::HTTP::Client	$!client;
 
-	submethod BUILD(:$!token) {
+	submethod BUILD(Str :$!token) {
+		dotenv_load();
+		$!token or %*ENV<HETZNER_TOKEN> or die "Missing HETZNER_TOKEN";
+		$!token or $!token = %*ENV<HETZNER_TOKEN>;
 		$!client = Cro::HTTP::Client.new(base-uri => 'https://api.hetzner.cloud/v1/');
 	}
 
 	method	auth-header() {
 		return Authorization => "Bearer $!token";
-	}
-
-	method list-servers(--> Promise) {
-		start {
-			my $resp = await $!client.get('servers', headers => [self.auth-header]);
-			return await $resp.body if $resp.status == 200;
-			die "Failed to list servers: $resp.status";
-		}
 	}
 
 	method get-server(Int $id --> Promise) {
@@ -74,22 +73,6 @@ class	WWW::CloudHosting::Hetzner {
 		}
 	}
 
-	method list-images(*%payload --> Promise) {
-		start {
-			my $resp = await $!client.get('images', 
-				headers => [self.auth-header],
-				query    => %payload,
-			);
-			if $resp.status == 200 {
-				await $resp.body
-			} else {
-				say "List images failed: status $resp.status";
-				say await $resp.body;
-				die "Failed to list images";
-			}
-		}
-	}
-
 	method create-server(*%payload --> Promise) {
 		self.create-action(
 			'create', 'server',
@@ -98,7 +81,7 @@ class	WWW::CloudHosting::Hetzner {
 		);
 	}
 
-	method create-snapshot(Str $server-id, Str $description --> Hash) {
+	method create-snapshot(Str $server-id, Str $description --> Promise) {
 		self.create-action(
 			'create', 'snapshot',
 			"servers/{$server-id}/actions/create_image",
@@ -134,5 +117,59 @@ say %payload.&to-json;
 			}
 			await $response.body;
 		}
+	}
+
+	method list-action(Str $url-part, *%query --> Promise) {
+		start {
+			CATCH {
+				when X::Cro::HTTP::Error {
+					say "List action failed: status {.response.status}";
+					say await .response.body;
+					die "Failed to list from $url-part";
+				}
+			}
+
+			my $resp = await $!client.get(
+				$url-part,
+				headers => [self.auth-header],
+				query   => %query,
+			);
+
+			if $resp.status == 200 {
+				await $resp.body
+			} else {
+				say "List $url-part failed: status $resp.status";
+				say await $resp.body;
+				die "Failed to list $url-part";
+			}
+		}
+	}
+
+	method list-images(*%query --> Promise) {
+		self.list-action('images', |%query);
+	}
+
+	method list-servers(*%query --> Promise) {
+		self.list-action('servers', |%query);
+	}
+
+	method get-full-configs(%configs) {
+		my %full-configs;
+		for %configs<servers>.kv -> $server-name, $server-config {
+			# Merge appropriate config into $full-config
+			my $full-config = merge-hashes(
+				$server-config,
+				%configs<datacentres>{$server-config<datacentre>},
+				%configs<server-categories>{$server-config<server-category>},
+			);
+			$full-config<environment-name> = %configs<environment-name>;
+
+			# New server name should be <environment>--<category>--<name>
+			$full-config<full-server-name> = <environment-name name-prefix name>.map({ $full-config{$_} }).join('--');
+
+			# Save $full-config into return value
+			%full-configs{$full-config<full-server-name>} = $full-config;
+		}
+		return %full-configs;
 	}
 }
